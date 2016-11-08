@@ -16,7 +16,7 @@ runDobot.o : runDobot.cpp dobotDriver.cpp dobotDriver.hpp
 	$(CC) -c ${CFLAGS} runDobot.cpp
 
 ${TAG} : dobotDriver.o runDobot.o
-	$(CC) -o $(CFLAGS)
+	$(CC) -o $(CFLAGS) runDobot.o dobotDriver.o
 
 .PHONY : clean cleanall install
 

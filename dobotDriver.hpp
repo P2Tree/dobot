@@ -46,7 +46,7 @@ class DobotDriver {
 private:
     Pose_t currentPose;
     int uartFd;
-    const char *uartPort = "/dev/ttyUSB0";
+    const char *uartPort;
 
     int uartInit();
     void openPort();

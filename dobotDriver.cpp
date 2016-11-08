@@ -18,14 +18,14 @@
 
 using namespace std;
 
-DobotDriver::DobotDriver(){
+DobotDriver::DobotDriver() : uartPort("/dev/ttyUSB0"){
     currentPose.mode = 0;
     currentPose.x = 0.0;
     currentPose.y = 0.0;
     currentPose.z = 0.0;
     currentPose.r = 0.0;
 }
-DobotDriver::DobotDriver(Pose_t pose) {
+DobotDriver::DobotDriver(Pose_t pose) : uartPort("/dev/ttyUSB0"){
     currentPose = pose;
 }
 
