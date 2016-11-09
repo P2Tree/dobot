@@ -1,13 +1,20 @@
 
 DIR_INC = ./
 DIR_SRC = ./
-DIR_OBJ = ./
-DIR_BIN = ./
+DIR_OBJ = ./obj
+DIR_BIN = ./bin
+
+SRC = ${wildcard ${DIR_SRC}/*.c}
+OBJ = $(patsubst %.c, ${DIR_OBJ}/%.o, $(notdir ${SRC}))
 
 TAG = runDobot
+BIN_TAG = ${DIR_BIN}/${TAG}
 
 CC = g++
 CFLAGS = -Wall
+
+${BIN_TAG} : dobotDriver.o runDobot.o
+	$(CC) -o ${BIN_TAG} runDobot.o dobotDriver.o
 
 dobotDriver.o : dobotDriver.cpp dobotDriver.hpp
 	${CC} -c ${CFLAGS} dobotDriver.cpp
@@ -15,18 +22,16 @@ dobotDriver.o : dobotDriver.cpp dobotDriver.hpp
 runDobot.o : runDobot.cpp dobotDriver.cpp dobotDriver.hpp
 	$(CC) -c ${CFLAGS} runDobot.cpp
 
-${TAG} : dobotDriver.o runDobot.o
-	$(CC) -o $(CFLAGS) runDobot.o dobotDriver.o
 
 .PHONY : clean cleanall install
 
 clean :
-	-rm -rf *.o
+	-rm -f *.o
 
 cleanall:
-	-rm -rf *.o ${TAG}
+	-rm -f *.o ${TAG} ${BIN_TAG}
 
 install :
-	./
+	./install.sh
 
 	
