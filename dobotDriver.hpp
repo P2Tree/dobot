@@ -7,7 +7,9 @@
 #define CTRLQ           0x02
 #define LEN_POINTSET    0x13
 #define LEN_POINTSETRET 0x0A
+#define LEN_GETCURRENTPOSE  0x02
 #define ID_POINTSET     0x54
+#define ID_GETCURRENTPOSE   0x0A
 
 typedef struct {
     unsigned int mode;
@@ -72,20 +74,29 @@ typedef struct {
     unsigned char y[4];
     unsigned char z[4];
     unsigned char r[4];
-    unsigned char j[5];
+    unsigned char j1[4];
+    unsigned char j2[4];
+    unsigned char j3[4];
+    unsigned char j4[4];
+    unsigned char j5[4];
     unsigned char checkSum;
 }CmdGetCurrentPoseRet_t;
-
 
 class DobotDriver {
 private:
     // It contain the current pose of dobot arm, will be updated by every motion of arm.
+    // currentPose is the position of dobot arm with software calibration: (zeroX, zeroY, zeroZ, zeroR)
     Pose_t currentPose;
 
     // 2 arguments of uart communication to dobot arm.
     int uartFd;
     const char *uartPort;
 
+    // Zero position of dobot with (x, y, z, r)
+    float zeroX;
+    float zeroY;
+    float zeroZ;
+    float zeroR;
     // Methods with uart communication to dobot arm.
     
     /**
@@ -110,6 +121,9 @@ private:
      *  */
     void setUartOpt(const int nSpeed, const int nBits, const char nEvent, const int nStop);
 
+    void setZero();
+    void updateZero();
+
     /****
      *  Methods about command last byte: Checksum.
      *  This byte in dobot arm command is working with Complement check, 
@@ -119,10 +133,10 @@ private:
     /**
      *  @func:  checkChecksum
      *  @brif:  check cs value in the received data to determin the validity of data.
-     *  @args:  received command
+     *  @args:  received command data and this's length
      *  @retn:  check result: 0 is for right, negative value means wrong.
      *  */
-    int checkChecksum(CmdPointSetRet_t cmd);
+    int checkChecksum(unsigned char *data, unsigned int datalen);
 
     /****
      *  Methods about create a command.
@@ -132,7 +146,7 @@ private:
     /**
      *  @func:  createPointsetCmd
      *  @brif:  create a command of move arm with PointSet method.
-     *  @args:  pose is the PointSet required
+     *  @args:  pose is the PointSet required, this is the ABSOLUTE COORDINATE.
      *  @retn:  CmdPointSet_t is the command it created.
      *  */
     CmdPointSet_t createPointsetCmd(Pose_t pose);
@@ -140,13 +154,21 @@ private:
     /**
      *  @func:  sendPointsetCmd
      *  @brif:  send Pointset command to the dobot arm.
-     *  @args:  cmd is the command waiting for send, pose is a assist args
+     *  @args:  cmd is the command waiting for send
      *  @retn:  none
      *  */
-    void sendPointsetCmd(CmdPointSet_t cmd, Pose_t pose);
+    void sendPointsetCmd(CmdPointSet_t cmd);
 
     CmdGetCurrentPose_t createGetCurrentPoseCmd();
-    void sendGetCurrentPoseCmd(CmdGetCurrentPose_t);
+    void sendGetCurrentPoseCmd(CmdGetCurrentPose_t, FullPose_t &retPose);
+
+    /**
+     *  @func:  updateCurrentPose
+     *  @brif:  update currentPose variable
+     *  @args:  pose is the world coordinate
+     *  @retn:  none
+     *  */
+    void updateCurrentPose(Pose_t pose);
 
     /**
      *  @func:  printPointsetCmd
@@ -174,12 +196,11 @@ public:
      *  @args:  none
      *  */
     DobotDriver();
-    DobotDriver(Pose_t pose);
 
     /**
      *  @func:  runPointset
      *  @brif:  publish Pointset command to dobot arm to move it
-     *  @args:  pose is a struct value with Pointset command
+     *  @args:  pose is a struct value with Pointset command, pose is the RELATIVE COORDINATE
      *  @retn:  return a value to get correct running information of command
      *  */
     int runPointset(Pose_t pose);
@@ -187,10 +208,12 @@ public:
     /**
      *  @func:  getCurrentPose
      *  @brif:  get current dobot arm FullPose
-     *  @args:  none
-     *  @retn:  return current pose of dobot arm
+     *  @args:  FullPose pose, pose is the return value of current pose of dobot arm,
+     *          pose is the ABSORATE COORDINATE
+     *  @retn:  return negative value is wrong, 0 is right
      *  */
-    Pose_t getCurrentPose();
+    int getCurrentPose(FullPose_t &pose);
+
 
 };
 
