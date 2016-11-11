@@ -9,6 +9,8 @@
 
 #include <iostream>
 #include <iomanip>
+#include <fstream>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -19,16 +21,37 @@
 
 using namespace std;
 
+/**
+ * 
+ *  PRIVATE STATIC ARGUMENTS
+ *
+ * */
+float DobotDriver::zeroX = 0.0;
+float DobotDriver::zeroY = 0.0;
+float DobotDriver::zeroZ = 0.0;
+float DobotDriver::zeroR = 0.0;
+
+/**
+ * 
+ *  PRIVATE METHODS
+ *
+ * */
 DobotDriver::DobotDriver() : uartPort("/dev/ttyUSB0"){
     if ( uartInit() )
-        exit(0);
-    FullPose_t absPose;
+        exit(-2);
+    // first set zero from zero.file file, after that [zero] should be setted
+    if (setZero()) {
+        perror("ERR: set zero values wrong");
+        exit(-1);
+    }
     // This is only to update currentPose variable, method will read current pose
     // and let it into currentPose
+    FullPose_t absPose;
     getCurrentPose(absPose);
-    cout << "init absolute pose is: ";
+    cout << "INFO: boot position(absolute): ";
     cout << "( " << absPose.x << ", " << absPose.y << ", " << absPose.z << ", " << absPose.r << ")" << endl;
-    //TODO: setZero
+
+    cout << "INFO: boot done ------ " << endl;
 }
 
 int DobotDriver::uartInit() {
@@ -38,10 +61,10 @@ int DobotDriver::uartInit() {
     }
     catch(int i) {
         if (-1 == i) {
-            perror("open uart port error");
+            perror("ERR: open uart port error");
         }
         if (-2 == i) {
-            perror("set uart options error");
+            perror("ERR: set uart options error");
         }
         return i;
     }
@@ -129,17 +152,23 @@ void DobotDriver::setUartOpt(const int nSpeed, const int nBits, const char nEven
     tcflush(uartFd, TCIOFLUSH);
 }
 
-void DobotDriver::setZero() {
-    //TODO: read file for zero
-    zeroX = currentPose.x;
-    zeroY = currentPose.y;
-    zeroZ = currentPose.z;
-    zeroR = currentPose.r;
+int DobotDriver::setZero() {
+    ifstream zerofile;
+    zerofile.open("zero.file", ios::in);     // open file for read
+    if (!zerofile.is_open()) {
+        cout << "ERR: open file zero.file for read, fail" << endl;
+        return -1;
+    }
+    zerofile >> zeroX >> zeroY >> zeroZ >> zeroR;
+    cout << "INFO: reset zero value from zero.file" << endl;
+    cout << "INFO: current zero: ";
+    cout << "(" << zeroX << ", " << zeroY << ", ";
+    cout << zeroZ << ", " << zeroR << ")" << endl;
+    zerofile.close();
+    return 0;
 }
+// By the word, method: updateZero is the public method, and its definition in the below of file
 
-void DobotDriver::updateZero() {
-    // let world coordinate: currentPose write to file:zero
-}
 
 int DobotDriver::checkChecksum( unsigned char *data, unsigned int datalen) {
     unsigned char addCS = 0x00;
@@ -163,7 +192,8 @@ CmdPointSet_t DobotDriver::createPointsetCmd(Pose_t pose) {
     cmd.id = ID_POINTSET;
     cmd.len = LEN_POINTSET;
     cmd.ctrl = CTRLW | CTRLQ;
-    cmd.mode = (unsigned char)pose.mode;
+    // cmd.mode = pose.mode;
+    cmd.mode = 0x01;
     char *pchar = (char *)&pose.x;
     for(int i=0; i<4; i++) {
         cmd.x[i] = *pchar;
@@ -192,7 +222,7 @@ CmdPointSet_t DobotDriver::createPointsetCmd(Pose_t pose) {
     check += cmd.r[0] + cmd.r[1] + cmd.r[2] + cmd.r[3];
     check = 0xFF - check + 0x01;
     cmd.checkSum = check;
-    // printPointsetCmd(cmd);
+    //printPointsetCmd(cmd);
     return cmd;
 }
 
@@ -206,7 +236,7 @@ CmdGetCurrentPose_t DobotDriver::createGetCurrentPoseCmd() {
     char check = cmd.id + cmd.ctrl;
     check = 0xFF - check + 0x01;
     cmd.checkSum = check;
-    // printGetCurrentPoseCmd(cmd);
+    //printGetCurrentPoseCmd(cmd);
     return cmd;
 }
 
@@ -223,8 +253,7 @@ void DobotDriver::sendPointsetCmd(CmdPointSet_t cmd) {
         throw -1;
         return;
     }
-
-    // printPointsetRetCmd(retData);
+    //printPointsetRetCmd(retData);
     tcflush(uartFd, TCIFLUSH);
     if ( -1 == checkChecksum((unsigned char*)pRetData, retLen) ) {
         throw -2;
@@ -248,7 +277,7 @@ void DobotDriver::sendGetCurrentPoseCmd(CmdGetCurrentPose_t cmd, FullPose_t &ret
         return;
     }
 
-    // printGetCurrentPoseRetCmd(retData);
+    //printGetCurrentPoseRetCmd(retData);
     tcflush(uartFd, TCIFLUSH);
     if ( -1 == checkChecksum((unsigned char*)pRetData, retLen) ) {
         throw -2;
@@ -304,7 +333,7 @@ int DobotDriver::runPointset(Pose_t pose) {
         }
     }
     updateCurrentPose(absPose);
-    cout << "current pose is: " << "(" << currentPose.x << ", " << currentPose.y;
+    cout << "DEBUG: currentPose(world): " << "(" << currentPose.x << ", " << currentPose.y;
     cout << ", " << currentPose.z << ", " << currentPose.r << ")" << endl;
     return 0;
 }
@@ -339,12 +368,32 @@ int DobotDriver::getCurrentPose(FullPose_t &retPose) {
         }
     }
     updateCurrentPose(mPose);
-    cout << "current pose is: " << "(" << currentPose.x << ", " << currentPose.y;
+    cout << "DEBUG: currentPose(world): " << "(" << currentPose.x << ", " << currentPose.y;
     cout << ", " << currentPose.z << ", " << currentPose.r << ")" << endl;
     return 0;
 }
 
+int DobotDriver::updateZero() {
+    ofstream zerofile;
+    zerofile.open("zero.file", ios::out);   // open file for write
+    if (! zerofile.is_open()) {
+        cout << "ERR: open file zero.file fail" << endl;
+        return -1;
+    }
+    zerofile << currentPose.x << '\t';
+    zerofile << currentPose.y << '\t';
+    zerofile << currentPose.z << '\t';
+    zerofile << currentPose.r << '\t';
+    cout << "INFO: updated zero position into zero.file" << endl;
+    zerofile.close();
+    return 0;
+}
 
+/**
+ *
+ *  PRIVATE METHODS of print
+ *
+ * */
 void DobotDriver::printPointsetCmd(CmdPointSet_t cmd) {
     cout << "DEBUG: pointset command is:" << endl;
     cout << "HD HD LN ID CR MD X1 X2 X3 X4 Y1 Y2 Y3 Y4 Z1 Z2 Z3 Z4 R1 R2 R3 R4 CS" << endl;

@@ -93,10 +93,10 @@ private:
     const char *uartPort;
 
     // Zero position of dobot with (x, y, z, r)
-    float zeroX;
-    float zeroY;
-    float zeroZ;
-    float zeroR;
+    static float zeroX;
+    static float zeroY;
+    static float zeroZ;
+    static float zeroR;
     // Methods with uart communication to dobot arm.
     
     /**
@@ -121,8 +121,13 @@ private:
      *  */
     void setUartOpt(const int nSpeed, const int nBits, const char nEvent, const int nStop);
 
-    void setZero();
-    void updateZero();
+    /**
+     *  @func:  setZero
+     *  @args:  set software zero value from zero.file
+     *  @retn:  return 0 is right but negative value is wrong
+     *  */
+    int setZero();
+
 
     /****
      *  Methods about command last byte: Checksum.
@@ -214,6 +219,12 @@ public:
      *  */
     int getCurrentPose(FullPose_t &pose);
 
+    /**
+     *  @func:  updateZero
+     *  @args:  update current position of arm into zero position and write data into zero.file
+     *  @retn:  return 0 is right but negative value is wrong
+     *  */
+    int updateZero();
 
 };
 

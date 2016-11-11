@@ -7,7 +7,8 @@ using namespace std;
 
 #define USAGE   cout << "Usage:" << endl; \
                 cout << "     ./runDobot SetPose" << endl; \
-                cout << "     ./runDobot GetPose" << endl;
+                cout << "     ./runDobot GetPose" << endl; \
+                cout << "     ./runDobot UpdateZero" << endl;
 
 
 int main(int argc, char * argv[])
@@ -19,11 +20,12 @@ int main(int argc, char * argv[])
     DobotDriver dobot;
     if (!strcmp(argv[1], "SetPose")) {
         // Pose_t pose={1, 130.9014, 0.0, 9.7602, 0.0};
-        Pose_t pose={1, -10, 0.0, 0.0, 0.0};
+        Pose_t pose={1, 0.0, 0.0, 0.0, 135.0};
         int ret = dobot.runPointset(pose);
         if ( -1 == ret ) {
             perror("fault to run Pointset method to dobot");
         }
+        cout << "INFO: move dobot arm done ----- " << endl;
     }
     else if (!strcmp(argv[1], "GetPose")) {
         FullPose_t currentPose;
@@ -35,11 +37,7 @@ int main(int argc, char * argv[])
         cout << "current y = " << currentPose.y << endl;
         cout << "current z = " << currentPose.z << endl;
         cout << "current r = " << currentPose.r << endl;
-        cout << "current j1 = " << currentPose.j1 << endl;
-        cout << "current j2 = " << currentPose.j2 << endl;
-        cout << "current j3 = " << currentPose.j3 << endl;
-        cout << "current j4 = " << currentPose.j4 << endl;
-        cout << "current j5 = " << currentPose.j5 << endl;
+        cout << "INFO: get current position done ----- " << endl;
     }
     else if(!strcmp(argv[1], "UpdateZero")) {
         int ret = dobot.updateZero();
