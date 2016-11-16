@@ -84,7 +84,6 @@ typedef struct {
 
 class DobotDriver {
 private:
-    static DobotDriver* pDobot;
     // It contain the current pose of dobot arm, will be updated by every motion of arm.
     // currentPose is the position of dobot arm with software calibration: (zeroX, zeroY, zeroZ, zeroR)
     Pose_t currentPose;
@@ -245,14 +244,6 @@ public:
      *  @retn:  return 0 is right but negative value is wrong
      *  */
     int set2Zero();
-
-    /**
-     *  @function:  rosSetPoseCB
-     *  @brief:     a callback methord of set dobot position
-     *  @args:      receivePose is command pose
-     *  @return:    none
-     *  */
-    static void rosSetPoseCB(const dobot::DobotPose receivePose);
 
 };
 

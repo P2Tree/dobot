@@ -1,18 +1,20 @@
 #include <iostream>
+#include <string.h>
 #include "ros/ros.h"
-#include "dobot/DobotPose.h"
+#include "dobot/DobotPoseMsg.h"
 
 using namespace std;
+
 int main(int argc, char *argv[])
 {
     ros::init(argc, argv, "teleop_dobotpose_keyboard");
     ros::NodeHandle node;
-    ros::Publisher pub = node.advertise<dobot::DobotPose>("dobot", 1000);
+    ros::Publisher pub = node.advertise<dobot::DobotPoseMsg>("dobot/relative_pose", 1000);
     ros::Rate loop_rate(10);
     float input_x = 0.0, input_y = 0.0, input_z = 0.0, input_r = 0.0;
 
     while (ros::ok()) {
-        dobot::DobotPose sendPose;
+        dobot::DobotPoseMsg sendPose;
         cout << "Please input the relative pose coordinate to move dobot: x y z r" << endl;
         if (!(cin >> input_x >> input_y >> input_z >> input_r)) {
             cin.clear();

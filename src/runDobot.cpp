@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "ros/ros.h"
-#include "dobot/DobotPose.h"
+#include "dobot/DobotPoseMsg.h"
 #include "dobotDriver.hpp"
 
 using namespace std;
@@ -13,9 +13,11 @@ using namespace std;
                 cout << "     ./runDobot Set2Zero" << endl; \
                 cout << "     ./runDobot UpdateZero" << endl; \
 
-static Pose_t PoseCommand={1, 0.0, 0.0, 0.0, 0.0};
+static Pose_t poseCommand={1, 0.0, 0.0, 0.0, 0.0};
+static int moveF = 0;
 
-void rosSetPoseCB(const dobot::DobotPose);
+void rosSetPoseCB(const dobot::DobotPoseMsg receivePose);
+
 
 int main(int argc, char * argv[])
 {
@@ -67,13 +69,47 @@ int main(int argc, char * argv[])
             // perror("fault to set zero for system");
         // }
     // }
-    // else {
-        ros::init(argc, argv, "runDobot");
-        ros::NodeHandle node;
-        DobotDriver initDobot(node);
-        // ros::spinOnce();
-    // }
+    FullPose_t currentPose;
+    int ret = 0;
+    dobot::DobotPoseMsg pubPoseMsg;
+    ros::init(argc, argv, "runDobot");
+    ros::NodeHandle node;
+    DobotDriver initDobot(node);
+    ros::Subscriber sub = node.subscribe<dobot::DobotPoseMsg>("dobot/relative_pose", 1000, rosSetPoseCB);
+    ros::Publisher pub = node.advertise<dobot::DobotPoseMsg>("dobot/current_pose", 1000);
+    ros::Rate loop_rate(10);
+    while(ros::ok()) {
+        if ( 1 == moveF ) {
+            ret = initDobot.runPointset(poseCommand);
+            if ( -1 == ret ) {
+                perror("fault to run Pointset method to dobot");
+                return -1;
+            }
+            cout << "INFO: move dobot arm done ----- " << endl;
+            moveF = 0;
+        }
+
+        ret = initDobot.getCurrentPose(currentPose);
+        if ( -1 == ret ) {
+            perror("fault to get current dobot position");
+            return -1;
+        }
+        pubPoseMsg.x = currentPose.x;
+        pubPoseMsg.y = currentPose.y;
+        pubPoseMsg.z = currentPose.z;
+        pubPoseMsg.r = currentPose.r;
+        pub.publish(pubPoseMsg);
+        ros::spinOnce();
+        loop_rate.sleep();
+    }
 
     return 0;
 }
 
+void rosSetPoseCB(const dobot::DobotPoseMsg receivePose) {
+    poseCommand.x = receivePose.x;
+    poseCommand.y = receivePose.y;
+    poseCommand.z = receivePose.z;
+    poseCommand.r = receivePose.r;
+    moveF = 1;
+}

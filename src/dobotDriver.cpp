@@ -18,7 +18,7 @@
 #include <termio.h>
 
 #include "ros/ros.h"
-#include "dobot/DobotPose.h"
+#include "dobot/DobotPoseMsg.h"
 #include "dobotDriver.hpp"
 
 using namespace std;
@@ -44,7 +44,6 @@ float DobotDriver::MinZ = -35;
 float DobotDriver::MaxR = 135;
 float DobotDriver::MinR = -135;
 
-DobotDriver* DobotDriver::pDobot = NULL;
 /**
  * 
  *  PRIVATE METHODS
@@ -66,10 +65,6 @@ DobotDriver::DobotDriver() : uartPort("/dev/ttyUSB0"){
 }
 
 DobotDriver::DobotDriver(ros::NodeHandle node) : uartPort("/dev/ttyUSB0"){
-    // This member is important, current object is pointed by pDobot.
-    // NOT SAFE TODO
-    pDobot = this;
-
     if ( uartInit() )
         exit(-2);
     // first set zero from zero.file file, after that [zero] should be setted
@@ -77,7 +72,6 @@ DobotDriver::DobotDriver(ros::NodeHandle node) : uartPort("/dev/ttyUSB0"){
         perror("ERR: set zero values wrong");
         exit(-1);
     }
-    ros::Subscriber sub = node.subscribe("dobot", 1000, rosSetPoseCB);
 
     // This is only to update currentPose variable, method will read current pose
     // and let it into currentPose
@@ -493,19 +487,6 @@ int DobotDriver::updateZero() {
  *  
  *  */
 //static
-void DobotDriver::rosSetPoseCB(const dobot::DobotPose receivePose) {
-    ROS_INFO("I heared: ( %02f, %02f, %02f, %02f )", receivePose.x, receivePose.y, receivePose.z, receivePose.r);
-    Pose_t poseCommand;
-    poseCommand.x = receivePose.x;
-    poseCommand.y = receivePose.y;
-    poseCommand.z = receivePose.z;
-    poseCommand.r = receivePose.r;
-    int ret = pDobot->runPointset(poseCommand);
-    if ( -1 == ret ) {
-        perror("fault to run Pointset method to dobot");
-    }
-    cout << "INFO: move dobot arm done ----- " << endl;
-}
 /**
  *
  *  PRIVATE METHODS of print
