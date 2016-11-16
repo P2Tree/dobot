@@ -413,12 +413,6 @@ void DobotDriver::updateCurrentPose(Pose_t pose) {
     currentPose = pose;
 }
 
-/****************************
- * 
- *  PUBLIC METHODS
- *  
- *  */
-
 int DobotDriver::runPointset(Pose_t pose) {
     CmdPointSet_t cmd;
 
@@ -470,6 +464,13 @@ int DobotDriver::runPointset(Pose_t pose) {
 #endif
     return 0;
 }
+
+/****************************
+ * 
+ *  PUBLIC METHODS
+ *  
+ *  */
+
 
 
 // This is a command of runDobot, to let arm return ro zero position

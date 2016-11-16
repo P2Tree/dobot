@@ -187,8 +187,22 @@ private:
      *  */
     void sendPointsetCmd(CmdPointSet_t cmd);
 
+    /**
+     *  @function: createGetCurrentPoseCmd
+     *  @brief:     use to create a command for get dobot current position
+     *  @args:      none
+     *  @return:    CmdGetCurrentPose_t: is the return of current position
+     *  */
     CmdGetCurrentPose_t createGetCurrentPoseCmd();
-    void sendGetCurrentPoseCmd(CmdGetCurrentPose_t, FullPose_t &retPose);
+
+    /**
+     *  @function:  sendGetCurrentPoseCmd
+     *  @brief:     send the command of get dobot current position
+     *  @args:      cmd is the command for getting current position
+     *              retPose is the return position
+     *  @return:    none
+     *  */
+    void sendGetCurrentPoseCmd(CmdGetCurrentPose_t cmd, FullPose_t &retPose);
 
     /**
      *  @func:  getCurrentPose
@@ -206,6 +220,14 @@ private:
      *  @retn:  none
      *  */
     void updateCurrentPose(Pose_t pose);
+
+    /**
+     *  @func:  runPointset
+     *  @brif:  publish Pointset command to dobot arm to move it
+     *  @args:  pose is a struct value with Pointset command, pose is the RELATIVE COORDINATE
+     *  @retn:  return a value to get correct running information of command
+     *  */
+    int runPointset(Pose_t pose);
 
     /**
      *  @func:  printPointsetCmd
@@ -236,16 +258,6 @@ public:
     DobotDriver(ros::NodeHandle);
 
     /**
-     *  @func:  runPointset
-     *  @brif:  publish Pointset command to dobot arm to move it
-     *  @args:  pose is a struct value with Pointset command, pose is the RELATIVE COORDINATE
-     *  @retn:  return a value to get correct running information of command
-     *  */
-    int runPointset(Pose_t pose);
-
-
-
-    /**
      *  @func:  set2Zero
      *  @brif:  control dobot to zero position
      *  @retn:  return 0 is right but negative value is wrong
@@ -260,6 +272,11 @@ public:
      *  */
     void rosSetPoseCB(const dobot::DobotPoseMsg receivePose);
 
+    /**
+     *  @function:  rosPublishPose
+     *  @brief:     This is a method for publish current dobot position, every time
+     *              call it, a position will be published in ros message
+     *  */
     void rosPublishPose();
 
 };
