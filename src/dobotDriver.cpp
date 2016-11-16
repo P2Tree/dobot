@@ -79,9 +79,9 @@ DobotDriver::DobotDriver(ros::NodeHandle node) : uartPort("/dev/ttyUSB0"){
         exit(-1);
     }
 
-    ros::Subscriber sub = node.subscribe<dobot::DobotPoseMsg>(
+    setPoseSub = node.subscribe<dobot::DobotPoseMsg>(
             "dobot/relative_pose", 1000, &DobotDriver::rosSetPoseCB, this);
-    ros::Publisher pub = node.advertise<dobot::DobotPoseMsg>(
+    currentPosePub = node.advertise<dobot::DobotPoseMsg>(
             "dobot/current_pose", 1000);
     // This is only to update currentPose variable, method will read current pose
     // and let it into currentPose
@@ -219,7 +219,23 @@ int DobotDriver::setZero(ros::NodeHandle node) {
     // zerofile.close();
     return 0;
 }
-// By the word, method: updateZero is the public method, and its definition in the below of file
+
+int DobotDriver::updateZero() {
+    ofstream zerofile;
+    // ZEROFILE
+    zerofile.open("~/driver/zero.file", ios::out);   // open file for write
+    if (! zerofile.is_open()) {
+        cout << "ERR: open file zero.file fail" << endl;
+        return -1;
+    }
+    zerofile << currentPose.x << '\t';
+    zerofile << currentPose.y << '\t';
+    zerofile << currentPose.z << '\t';
+    zerofile << currentPose.r << '\t';
+    cout << "INFO: updated zero position into zero.file" << endl;
+    zerofile.close();
+    return 0;
+}
 
 
 int DobotDriver::checkChecksum( unsigned char *data, unsigned int datalen) {
@@ -356,11 +372,48 @@ void DobotDriver::sendGetCurrentPoseCmd(CmdGetCurrentPose_t cmd, FullPose_t &ret
 
 }
 
+int DobotDriver::getCurrentPose(FullPose_t &retPose) {
+    CmdGetCurrentPose_t cmd;
+    Pose_t mPose;
+    cmd = createGetCurrentPoseCmd();
+    try {
+        sendGetCurrentPoseCmd(cmd, retPose);
+        // retPose is the world coordinate, return from dobot arm
+        // transfer FullPose_t struct variable to Pose_t struct variable
+        mPose.x = retPose.x;
+        mPose.y = retPose.y;
+        mPose.z = retPose.z;
+        mPose.r = retPose.r;
+        // Add return pose position with software zero calibration
+        retPose.x -= zeroX;
+        retPose.y -= zeroY;
+        retPose.z -= zeroZ;
+        retPose.r -= zeroR;
+        // now retPose is the absolute coordinate
+    }
+    catch(int i) {
+        if (-1 == i) {
+            perror("receive no data");
+            return -1;
+        }
+        if (-2 == i) {
+            perror("receive data cs check wrong");
+            return -1;
+        }
+    }
+    updateCurrentPose(mPose);
+#ifdef DEBUG
+    cout << "DEBUG: currentPose(world): " << "(" << currentPose.x << ", " << currentPose.y;
+    cout << ", " << currentPose.z << ", " << currentPose.r << ")" << endl;
+#endif
+    return 0;
+}
+
 void DobotDriver::updateCurrentPose(Pose_t pose) {
     currentPose = pose;
 }
 
-/**
+/****************************
  * 
  *  PUBLIC METHODS
  *  
@@ -418,42 +471,6 @@ int DobotDriver::runPointset(Pose_t pose) {
     return 0;
 }
 
-int DobotDriver::getCurrentPose(FullPose_t &retPose) {
-    CmdGetCurrentPose_t cmd;
-    Pose_t mPose;
-    cmd = createGetCurrentPoseCmd();
-    try {
-        sendGetCurrentPoseCmd(cmd, retPose);
-        // retPose is the world coordinate, return from dobot arm
-        // transfer FullPose_t struct variable to Pose_t struct variable
-        mPose.x = retPose.x;
-        mPose.y = retPose.y;
-        mPose.z = retPose.z;
-        mPose.r = retPose.r;
-        // Add return pose position with software zero calibration
-        retPose.x -= zeroX;
-        retPose.y -= zeroY;
-        retPose.z -= zeroZ;
-        retPose.r -= zeroR;
-        // now retPose is the absolute coordinate
-    }
-    catch(int i) {
-        if (-1 == i) {
-            perror("receive no data");
-            return -1;
-        }
-        if (-2 == i) {
-            perror("receive data cs check wrong");
-            return -1;
-        }
-    }
-    updateCurrentPose(mPose);
-#ifdef DEBUG
-    cout << "DEBUG: currentPose(world): " << "(" << currentPose.x << ", " << currentPose.y;
-    cout << ", " << currentPose.z << ", " << currentPose.r << ")" << endl;
-#endif
-    return 0;
-}
 
 // This is a command of runDobot, to let arm return ro zero position
 int DobotDriver::set2Zero() {
@@ -488,30 +505,40 @@ int DobotDriver::set2Zero() {
 
 }
 
-int DobotDriver::updateZero() {
-    ofstream zerofile;
-    // ZEROFILE
-    zerofile.open("~/driver/zero.file", ios::out);   // open file for write
-    if (! zerofile.is_open()) {
-        cout << "ERR: open file zero.file fail" << endl;
-        return -1;
+
+void DobotDriver::rosPublishPose() {
+    FullPose_t currentPose;
+    dobot::DobotPoseMsg pubPoseMsg;
+    int ret = getCurrentPose(currentPose);
+    if ( -1 == ret ) {
+        perror("fault to get current dobot position");
     }
-    zerofile << currentPose.x << '\t';
-    zerofile << currentPose.y << '\t';
-    zerofile << currentPose.z << '\t';
-    zerofile << currentPose.r << '\t';
-    cout << "INFO: updated zero position into zero.file" << endl;
-    zerofile.close();
-    return 0;
+    pubPoseMsg.x = currentPose.x;
+    pubPoseMsg.y = currentPose.y;
+    pubPoseMsg.z = currentPose.z;
+    pubPoseMsg.r = currentPose.r;
+    currentPosePub.publish(pubPoseMsg);
 }
 
-/**
+/**************************
  * 
  *  CALLBACK PUBLISH METHODS
  *  
  *  */
-//static
-/**
+void DobotDriver::rosSetPoseCB(const dobot::DobotPoseMsg receivePose) {
+    Pose_t poseCommand;
+    poseCommand.x = receivePose.x;
+    poseCommand.y = receivePose.y;
+    poseCommand.z = receivePose.z;
+    poseCommand.r = receivePose.r;
+    int ret = runPointset(poseCommand);
+    if ( -1 == ret ) {
+        perror("fault to run Pointset method to dobot");
+    }
+    cout << "INFO: move dobot arm done ----- " << endl;
+}
+
+/**************************
  *
  *  PRIVATE METHODS of print
  *

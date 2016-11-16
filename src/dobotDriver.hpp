@@ -1,6 +1,8 @@
 #ifndef DOBOT_DRIVER_H_
 #define DOBOT_DRIVER_H_ value
 
+#include "ros/ros.h"
+
 #define HD      0xAA
 #define CTRLR           0x00
 #define CTRLW           0x01
@@ -109,6 +111,10 @@ private:
     static float MinR;
     // Methods with uart communication to dobot arm.
     
+    // About ROS arguments
+    ros::Publisher currentPosePub;
+    ros::Subscriber setPoseSub;
+
     /**
      *  @function:  uartInit
      *  @brief:  initialization of uart to communicate with dobot arm.
@@ -139,6 +145,12 @@ private:
      *  */
     int setZero(ros::NodeHandle node);
 
+    /**
+     *  @func:  updateZero
+     *  @brif:  update current position of arm into zero position and write data into zero.file
+     *  @retn:  return 0 is right but negative value is wrong
+     *  */
+    int updateZero();
 
     /****
      *  Methods about command last byte: Checksum.
@@ -177,6 +189,15 @@ private:
 
     CmdGetCurrentPose_t createGetCurrentPoseCmd();
     void sendGetCurrentPoseCmd(CmdGetCurrentPose_t, FullPose_t &retPose);
+
+    /**
+     *  @func:  getCurrentPose
+     *  @brif:  get current dobot arm FullPose
+     *  @args:  FullPose pose, pose is the return value of current pose of dobot arm,
+     *          pose is the ABSORATE COORDINATE
+     *  @retn:  return negative value is wrong, 0 is right
+     *  */
+    int getCurrentPose(FullPose_t &pose);
 
     /**
      *  @func:  updateCurrentPose
@@ -222,21 +243,7 @@ public:
      *  */
     int runPointset(Pose_t pose);
 
-    /**
-     *  @func:  getCurrentPose
-     *  @brif:  get current dobot arm FullPose
-     *  @args:  FullPose pose, pose is the return value of current pose of dobot arm,
-     *          pose is the ABSORATE COORDINATE
-     *  @retn:  return negative value is wrong, 0 is right
-     *  */
-    int getCurrentPose(FullPose_t &pose);
 
-    /**
-     *  @func:  updateZero
-     *  @brif:  update current position of arm into zero position and write data into zero.file
-     *  @retn:  return 0 is right but negative value is wrong
-     *  */
-    int updateZero();
 
     /**
      *  @func:  set2Zero
@@ -245,7 +252,15 @@ public:
      *  */
     int set2Zero();
 
+    /**
+     *  @function:  rosSetPoseCB
+     *  @brief:     This is a callback function for ros subscriber(relative_pose)
+     *              to receive position command
+     *  @arg:      receivePose: is a DobotPoseMsg type argument, contain position command
+     *  */
     void rosSetPoseCB(const dobot::DobotPoseMsg receivePose);
+
+    void rosPublishPose();
 
 };
 
