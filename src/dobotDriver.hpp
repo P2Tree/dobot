@@ -245,6 +245,8 @@ public:
      *  */
     int set2Zero();
 
+    void rosSetPoseCB(const dobot::DobotPoseMsg receivePose);
+
 };
 
 #endif /* ifndef DOBOT_DRIVER_H_ */

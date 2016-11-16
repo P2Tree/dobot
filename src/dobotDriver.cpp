@@ -23,11 +23,23 @@
 
 using namespace std;
 
-/**
+/********************
+ * 
+ *  DEFINE
+ *  
+ *  */
+#define DEBUG
+
+#ifdef DEBUG
+// #define DEBUG_ORIGIN
+#endif
+
+/*******************
  * 
  *  PRIVATE STATIC ARGUMENTS
  *
  * */
+
 // zero arguments: zero point of software
 float DobotDriver::zeroX = 200.0;
 float DobotDriver::zeroY = 0.0;
@@ -44,7 +56,7 @@ float DobotDriver::MinZ = -35;
 float DobotDriver::MaxR = 135;
 float DobotDriver::MinR = -135;
 
-/**
+/******************
  * 
  *  PRIVATE METHODS
  *
@@ -52,12 +64,6 @@ float DobotDriver::MinR = -135;
 DobotDriver::DobotDriver() : uartPort("/dev/ttyUSB0"){
     if ( uartInit() )
         exit(-2);
-    // first set zero from zero.file file, after that [zero] should be setted
-    // if (setZero()) {
-        // perror("ERR: set zero values wrong");
-        // exit(-1);
-    // }
-    // This is only to update currentPose variable, method will read current pose
     FullPose_t absPose;
     getCurrentPose(absPose);
     cout << "INFO: boot position(absolute): ";
@@ -73,6 +79,10 @@ DobotDriver::DobotDriver(ros::NodeHandle node) : uartPort("/dev/ttyUSB0"){
         exit(-1);
     }
 
+    ros::Subscriber sub = node.subscribe<dobot::DobotPoseMsg>(
+            "dobot/relative_pose", 1000, &DobotDriver::rosSetPoseCB, this);
+    ros::Publisher pub = node.advertise<dobot::DobotPoseMsg>(
+            "dobot/current_pose", 1000);
     // This is only to update currentPose variable, method will read current pose
     // and let it into currentPose
     cout << "INFO: Setting zero position" << endl;
@@ -264,7 +274,9 @@ CmdPointSet_t DobotDriver::createPointsetCmd(Pose_t pose) {
     check += cmd.r[0] + cmd.r[1] + cmd.r[2] + cmd.r[3];
     check = 0xFF - check + 0x01;
     cmd.checkSum = check;
-    //printPointsetCmd(cmd);
+#ifdef DEBUG_ORIGIN
+    printPointsetCmd(cmd);
+#endif
     return cmd;
 }
 
@@ -278,7 +290,9 @@ CmdGetCurrentPose_t DobotDriver::createGetCurrentPoseCmd() {
     char check = cmd.id + cmd.ctrl;
     check = 0xFF - check + 0x01;
     cmd.checkSum = check;
-    //printGetCurrentPoseCmd(cmd);
+#ifdef DEBUG_ORIGIN
+    printGetCurrentPoseCmd(cmd);
+#endif
     return cmd;
 }
 
@@ -295,7 +309,9 @@ void DobotDriver::sendPointsetCmd(CmdPointSet_t cmd) {
         throw -1;
         return;
     }
-    //printPointsetRetCmd(retData);
+#ifdef DEBUG_ORIGIN
+    printPointsetRetCmd(retData);
+#endif
     tcflush(uartFd, TCIFLUSH);
     if ( -1 == checkChecksum((unsigned char*)pRetData, retLen) ) {
         throw -2;
@@ -319,7 +335,9 @@ void DobotDriver::sendGetCurrentPoseCmd(CmdGetCurrentPose_t cmd, FullPose_t &ret
         return;
     }
 
-    //printGetCurrentPoseRetCmd(retData);
+#ifdef DEBUG_ORIGIN
+    printGetCurrentPoseRetCmd(retData);
+#endif
     tcflush(uartFd, TCIFLUSH);
     if ( -1 == checkChecksum((unsigned char*)pRetData, retLen) ) {
         throw -2;
@@ -393,8 +411,10 @@ int DobotDriver::runPointset(Pose_t pose) {
         }
     }
     updateCurrentPose(absPose);
+#ifdef DEBUG
     cout << "DEBUG: currentPose(world): " << "(" << currentPose.x << ", " << currentPose.y;
     cout << ", " << currentPose.z << ", " << currentPose.r << ")" << endl;
+#endif
     return 0;
 }
 
@@ -428,8 +448,10 @@ int DobotDriver::getCurrentPose(FullPose_t &retPose) {
         }
     }
     updateCurrentPose(mPose);
+#ifdef DEBUG
     cout << "DEBUG: currentPose(world): " << "(" << currentPose.x << ", " << currentPose.y;
     cout << ", " << currentPose.z << ", " << currentPose.r << ")" << endl;
+#endif
     return 0;
 }
 
@@ -458,8 +480,10 @@ int DobotDriver::set2Zero() {
         }
     }
     updateCurrentPose(absPose);
+#ifdef DEBUG
     cout << "DEBUG: currentPose(world): " << "(" << currentPose.x << ", " << currentPose.y;
     cout << ", " << currentPose.z << ", " << currentPose.r << ")" << endl;
+#endif
     return 0;
 
 }
