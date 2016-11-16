@@ -17,6 +17,8 @@
 #include <fcntl.h>
 #include <termio.h>
 
+#include "ros/ros.h"
+#include "dobot/DobotPose.h"
 #include "dobotDriver.hpp"
 
 using namespace std;
@@ -42,7 +44,7 @@ float DobotDriver::MinZ = -35;
 float DobotDriver::MaxR = 135;
 float DobotDriver::MinR = -135;
 
-
+DobotDriver* DobotDriver::pDobot = NULL;
 /**
  * 
  *  PRIVATE METHODS
@@ -52,17 +54,40 @@ DobotDriver::DobotDriver() : uartPort("/dev/ttyUSB0"){
     if ( uartInit() )
         exit(-2);
     // first set zero from zero.file file, after that [zero] should be setted
-    if (setZero()) {
-        perror("ERR: set zero values wrong");
-        exit(-1);
-    }
+    // if (setZero()) {
+        // perror("ERR: set zero values wrong");
+        // exit(-1);
+    // }
     // This is only to update currentPose variable, method will read current pose
-    // and let it into currentPose
     FullPose_t absPose;
     getCurrentPose(absPose);
     cout << "INFO: boot position(absolute): ";
     cout << "( " << absPose.x << ", " << absPose.y << ", " << absPose.z << ", " << absPose.r << ")" << endl;
+}
 
+DobotDriver::DobotDriver(ros::NodeHandle node) : uartPort("/dev/ttyUSB0"){
+    // This member is important, current object is pointed by pDobot.
+    // NOT SAFE TODO
+    pDobot = this;
+
+    if ( uartInit() )
+        exit(-2);
+    // first set zero from zero.file file, after that [zero] should be setted
+    if (setZero(node)) {
+        perror("ERR: set zero values wrong");
+        exit(-1);
+    }
+    ros::Subscriber sub = node.subscribe("dobot", 1000, rosSetPoseCB);
+
+    // This is only to update currentPose variable, method will read current pose
+    // and let it into currentPose
+    cout << "INFO: Setting zero position" << endl;
+    set2Zero();
+    sleep(1);
+    FullPose_t absPose;
+    getCurrentPose(absPose);
+    cout << "INFO: boot position(absolute): ";
+    cout << "( " << absPose.x << ", " << absPose.y << ", " << absPose.z << ", " << absPose.r << ")" << endl;
     cout << "INFO: boot done ------ " << endl;
 }
 
@@ -164,20 +189,30 @@ void DobotDriver::setUartOpt(const int nSpeed, const int nBits, const char nEven
     tcflush(uartFd, TCIOFLUSH);
 }
 
-int DobotDriver::setZero() {
-    ifstream zerofile;
-    // ZEROFILE
-    zerofile.open("~/driver/zero.file", ios::in);     // open file for read
-    if (!zerofile.is_open()) {
-        cout << "ERR: open file zero.file for read, fail" << endl;
+// get zero value and put it into zero arguments
+int DobotDriver::setZero(ros::NodeHandle node) {
+    if (!node.getParam("/runDobot/zeroX", zeroX)) {
+        cout << "ERR: wrong to get zero values from rosparams" << endl;
         return -1;
     }
-    zerofile >> zeroX >> zeroY >> zeroZ >> zeroR;
+
     cout << "INFO: reset zero value from zero.file" << endl;
     cout << "INFO: current zero: ";
     cout << "(" << zeroX << ", " << zeroY << ", ";
     cout << zeroZ << ", " << zeroR << ")" << endl;
-    zerofile.close();
+    // ifstream zerofile;
+    // // ZEROFILE
+    // zerofile.open("~/driver/zero.file", ios::in);     // open file for read
+    // if (!zerofile.is_open()) {
+        // cout << "ERR: open file zero.file for read, fail" << endl;
+        // return -1;
+    // }
+    // zerofile >> zeroX >> zeroY >> zeroZ >> zeroR;
+    // cout << "INFO: reset zero value from zero.file" << endl;
+    // cout << "INFO: current zero: ";
+    // cout << "(" << zeroX << ", " << zeroY << ", ";
+    // cout << zeroZ << ", " << zeroR << ")" << endl;
+    // zerofile.close();
     return 0;
 }
 // By the word, method: updateZero is the public method, and its definition in the below of file
@@ -404,10 +439,12 @@ int DobotDriver::getCurrentPose(FullPose_t &retPose) {
     return 0;
 }
 
+// This is a command of runDobot, to let arm return ro zero position
 int DobotDriver::set2Zero() {
     CmdPointSet_t cmd;
 
     Pose_t absPose;
+    cout << zeroX << " " << zeroY << " " << zeroZ << " " << zeroR << endl;
     absPose.x = zeroX;
     absPose.y = zeroY;
     absPose.z = zeroZ;
@@ -450,6 +487,25 @@ int DobotDriver::updateZero() {
     return 0;
 }
 
+/**
+ * 
+ *  CALLBACK PUBLISH METHODS
+ *  
+ *  */
+//static
+void DobotDriver::rosSetPoseCB(const dobot::DobotPose receivePose) {
+    ROS_INFO("I heared: ( %02f, %02f, %02f, %02f )", receivePose.x, receivePose.y, receivePose.z, receivePose.r);
+    Pose_t poseCommand;
+    poseCommand.x = receivePose.x;
+    poseCommand.y = receivePose.y;
+    poseCommand.z = receivePose.z;
+    poseCommand.r = receivePose.r;
+    int ret = pDobot->runPointset(poseCommand);
+    if ( -1 == ret ) {
+        perror("fault to run Pointset method to dobot");
+    }
+    cout << "INFO: move dobot arm done ----- " << endl;
+}
 /**
  *
  *  PRIVATE METHODS of print

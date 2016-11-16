@@ -11,8 +11,6 @@
 #define ID_POINTSET     0x54
 #define ID_GETCURRENTPOSE   0x0A
 
-#define ZEROFILE        "~/driver/zero.file"
-
 typedef struct {
     unsigned int mode;
     float x;
@@ -86,6 +84,7 @@ typedef struct {
 
 class DobotDriver {
 private:
+    static DobotDriver* pDobot;
     // It contain the current pose of dobot arm, will be updated by every motion of arm.
     // currentPose is the position of dobot arm with software calibration: (zeroX, zeroY, zeroZ, zeroR)
     Pose_t currentPose;
@@ -112,10 +111,10 @@ private:
     // Methods with uart communication to dobot arm.
     
     /**
-     *  @func:  uartInit
-     *  @brif:  initialization of uart to communicate with dobot arm.
-     *  @args:  none
-     *  @retn:  int: negative return is fault, 0 is done.
+     *  @function:  uartInit
+     *  @brief:  initialization of uart to communicate with dobot arm.
+     *  @arg:  none
+     *  @return:  int: negative return is fault, 0 is done.
      *  */
     int uartInit();
 
@@ -135,10 +134,11 @@ private:
 
     /**
      *  @func:  setZero
-     *  @args:  set software zero value from zero.file
+     *  @brif:  set software zero value from zero.file
+     *  @args:  node is the ros hander
      *  @retn:  return 0 is right but negative value is wrong
      *  */
-    int setZero();
+    int setZero(ros::NodeHandle node);
 
 
     /****
@@ -213,6 +213,7 @@ public:
      *  @args:  none
      *  */
     DobotDriver();
+    DobotDriver(ros::NodeHandle);
 
     /**
      *  @func:  runPointset
@@ -244,6 +245,14 @@ public:
      *  @retn:  return 0 is right but negative value is wrong
      *  */
     int set2Zero();
+
+    /**
+     *  @function:  rosSetPoseCB
+     *  @brief:     a callback methord of set dobot position
+     *  @args:      receivePose is command pose
+     *  @return:    none
+     *  */
+    static void rosSetPoseCB(const dobot::DobotPose receivePose);
 
 };
 
