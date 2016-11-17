@@ -258,11 +258,11 @@ public:
     DobotDriver(ros::NodeHandle);
 
     /**
-     *  @func:  set2Zero
+     *  @func:  rosSet2Zero
      *  @brif:  control dobot to zero position
      *  @retn:  return 0 is right but negative value is wrong
      *  */
-    int set2Zero();
+    int rosSet2Zero();
 
     /**
      *  @function:  rosSetPoseCB

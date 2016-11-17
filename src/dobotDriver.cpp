@@ -86,7 +86,7 @@ DobotDriver::DobotDriver(ros::NodeHandle node) : uartPort("/dev/ttyUSB0"){
     // This is only to update currentPose variable, method will read current pose
     // and let it into currentPose
     cout << "INFO: Setting zero position" << endl;
-    set2Zero();
+    rosSet2Zero();
     sleep(1);
     FullPose_t absPose;
     getCurrentPose(absPose);
@@ -471,10 +471,8 @@ int DobotDriver::runPointset(Pose_t pose) {
  *  
  *  */
 
-
-
 // This is a command of runDobot, to let arm return ro zero position
-int DobotDriver::set2Zero() {
+int DobotDriver::rosSet2Zero() {
     CmdPointSet_t cmd;
 
     Pose_t absPose;
@@ -514,6 +512,7 @@ void DobotDriver::rosPublishPose() {
     if ( -1 == ret ) {
         perror("fault to get current dobot position");
     }
+    pubPoseMsg.mode = 0;
     pubPoseMsg.x = currentPose.x;
     pubPoseMsg.y = currentPose.y;
     pubPoseMsg.z = currentPose.z;
@@ -528,13 +527,18 @@ void DobotDriver::rosPublishPose() {
  *  */
 void DobotDriver::rosSetPoseCB(const dobot::DobotPoseMsg receivePose) {
     Pose_t poseCommand;
-    poseCommand.x = receivePose.x;
-    poseCommand.y = receivePose.y;
-    poseCommand.z = receivePose.z;
-    poseCommand.r = receivePose.r;
-    int ret = runPointset(poseCommand);
-    if ( -1 == ret ) {
-        perror("fault to run Pointset method to dobot");
+    if ( 1 == receivePose.mode ) {
+        rosSet2Zero();
+    }
+    else {
+        poseCommand.x = receivePose.x;
+        poseCommand.y = receivePose.y;
+        poseCommand.z = receivePose.z;
+        poseCommand.r = receivePose.r;
+        int ret = runPointset(poseCommand);
+        if ( -1 == ret ) {
+            perror("fault to run Pointset method to dobot");
+        }
     }
     cout << "INFO: move dobot arm done ----- " << endl;
 }
