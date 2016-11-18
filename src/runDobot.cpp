@@ -4,6 +4,8 @@
 #include "ros/ros.h"
 #include "dobot/DobotPoseMsg.h"
 #include "dobotDriver.hpp"
+#include "ros/topic.h"
+
 
 using namespace std;
 
@@ -29,7 +31,8 @@ int main(int argc, char * argv[])
     while(ros::ok()) {
         initDobot.rosPublishPose();
         ros::spinOnce();
-        loop_rate.sleep();
+        // loop_rate.sleep();
+        ros::topic::waitForMessage<dobot::DobotPoseMsg>("/dobot/relative_pose", ros::Duration(0.1));
     }
 
     return 0;

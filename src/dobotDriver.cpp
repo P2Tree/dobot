@@ -41,12 +41,16 @@ using namespace std;
  * */
 
 // zero arguments: zero point of software
+// this values is the world value
+// zero values can be changed by rosparams server
 float DobotDriver::zeroX = 200.0;
 float DobotDriver::zeroY = 0.0;
 float DobotDriver::zeroZ = -35;
 float DobotDriver::zeroR = 0;
 
 // clamp arguments: limited of space margin
+// this values is the world value
+// limited values can be changed by rosparams server
 float DobotDriver::MaxX = 300;
 float DobotDriver::MinX = 200;
 float DobotDriver::MaxY = 114;
@@ -74,15 +78,16 @@ DobotDriver::DobotDriver(ros::NodeHandle node) : uartPort("/dev/ttyUSB0"){
     if ( uartInit() )
         exit(-2);
     // first set zero from zero.file file, after that [zero] should be setted
+    // setZero function will get zero values from rosparams server at this time
     if (setZero(node)) {
         perror("ERR: set zero values wrong");
         exit(-1);
     }
 
     setPoseSub = node.subscribe<dobot::DobotPoseMsg>(
-            "dobot/relative_pose", 1000, &DobotDriver::rosSetPoseCB, this);
+            "dobot/set_dobot_pose", 10, &DobotDriver::rosSetPoseCB, this);
     currentPosePub = node.advertise<dobot::DobotPoseMsg>(
-            "dobot/current_pose", 1000);
+            "dobot/current_dobot_pose", 10);
     // This is only to update currentPose variable, method will read current pose
     // and let it into currentPose
     cout << "INFO: Setting zero position" << endl;
@@ -195,13 +200,15 @@ void DobotDriver::setUartOpt(const int nSpeed, const int nBits, const char nEven
 
 // get zero value and put it into zero arguments
 int DobotDriver::setZero(ros::NodeHandle node) {
-    if (!node.getParam("/runDobot/zeroX", zeroX)) {
-        cout << "ERR: wrong to get zero values from rosparams" << endl;
+    int ret = node.getParam("/runDobot/zeroX", zeroX);
+    cout << "ret: " << ret << endl;
+    if (!ret) {
+        cout << "ERR: wrong to get zero values from rosparams server" << endl;
         return -1;
     }
 
-    cout << "INFO: reset zero value from zero.file" << endl;
-    cout << "INFO: current zero: ";
+    cout << "INFO: reset zero value done." << endl;
+    cout << " Current zero: ";
     cout << "(" << zeroX << ", " << zeroY << ", ";
     cout << zeroZ << ", " << zeroR << ")" << endl;
     // ifstream zerofile;
@@ -401,16 +408,17 @@ int DobotDriver::getCurrentPose(FullPose_t &retPose) {
             return -1;
         }
     }
+    // mPose is the world coordinate
     updateCurrentPose(mPose);
-#ifdef DEBUG
-    cout << "DEBUG: currentPose(world): " << "(" << currentPose.x << ", " << currentPose.y;
-    cout << ", " << currentPose.z << ", " << currentPose.r << ")" << endl;
-#endif
     return 0;
 }
 
 void DobotDriver::updateCurrentPose(Pose_t pose) {
     currentPose = pose;
+#ifdef DEBUG
+    cout << "DEBUG: currentPose(world): " << "(" << currentPose.x << ", " << currentPose.y;
+    cout << ", " << currentPose.z << ", " << currentPose.r << ")" << endl;
+#endif
 }
 
 int DobotDriver::runPointset(Pose_t pose) {
@@ -457,11 +465,11 @@ int DobotDriver::runPointset(Pose_t pose) {
             return -1;
         }
     }
-    updateCurrentPose(absPose);
-#ifdef DEBUG
-    cout << "DEBUG: currentPose(world): " << "(" << currentPose.x << ", " << currentPose.y;
-    cout << ", " << currentPose.z << ", " << currentPose.r << ")" << endl;
-#endif
+    // updateCurrentPose(absPose);
+// #ifdef DEBUG
+    // cout << "DEBUG: currentPose(world): " << "(" << currentPose.x << ", " << currentPose.y;
+    // cout << ", " << currentPose.z << ", " << currentPose.r << ")" << endl;
+// #endif
     return 0;
 }
 
@@ -495,11 +503,11 @@ int DobotDriver::rosSet2Zero() {
             return -1;
         }
     }
-    updateCurrentPose(absPose);
-#ifdef DEBUG
-    cout << "DEBUG: currentPose(world): " << "(" << currentPose.x << ", " << currentPose.y;
-    cout << ", " << currentPose.z << ", " << currentPose.r << ")" << endl;
-#endif
+    // updateCurrentPose(absPose);
+// #ifdef DEBUG
+    // cout << "DEBUG: currentPose(world): " << "(" << currentPose.x << ", " << currentPose.y;
+    // cout << ", " << currentPose.z << ", " << currentPose.r << ")" << endl;
+// #endif
     return 0;
 
 }
@@ -512,6 +520,7 @@ void DobotDriver::rosPublishPose() {
     if ( -1 == ret ) {
         perror("fault to get current dobot position");
     }
+    pubPoseMsg.control = 0;
     pubPoseMsg.mode = 0;
     pubPoseMsg.x = currentPose.x;
     pubPoseMsg.y = currentPose.y;
@@ -527,14 +536,28 @@ void DobotDriver::rosPublishPose() {
  *  */
 void DobotDriver::rosSetPoseCB(const dobot::DobotPoseMsg receivePose) {
     Pose_t poseCommand;
-    if ( 1 == receivePose.mode ) {
+    if ( 1 == receivePose.control ) {
+        // control == 1 means that return to zero position in any case
         rosSet2Zero();
     }
-    else {
-        poseCommand.x = receivePose.x;
-        poseCommand.y = receivePose.y;
-        poseCommand.z = receivePose.z;
-        poseCommand.r = receivePose.r;
+    else if ( 0 == receivePose.control ) {
+        if ( 0 == receivePose.mode ) {
+            // mode == 1 means that coordinate is relative
+            cout << "relative" << endl;
+            poseCommand.x = receivePose.x;
+            poseCommand.y = receivePose.y;
+            poseCommand.z = receivePose.z;
+            poseCommand.r = receivePose.r;
+        }
+        else if ( 1 == receivePose.mode ) {
+            // mode == 0 means that coordinate is absolute
+            cout << "absolute" << endl;
+            poseCommand.x = receivePose.x - currentPose.x;
+            poseCommand.y = receivePose.y - currentPose.y;
+            poseCommand.z = receivePose.z - currentPose.z;
+            poseCommand.r = receivePose.r - currentPose.r;
+        }
+        // poseCommand is the relative coordinate
         int ret = runPointset(poseCommand);
         if ( -1 == ret ) {
             perror("fault to run Pointset method to dobot");

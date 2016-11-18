@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
 {
     ros::init(argc, argv, "teleop_dobotpose_keyboard");
     ros::NodeHandle node;
-    ros::Publisher pub = node.advertise<dobot::DobotPoseMsg>("dobot/relative_pose", 1000);
+    ros::Publisher pub = node.advertise<dobot::DobotPoseMsg>("dobot/set_dobot_pose", 10);
     ros::Rate loop_rate(10);
     float input_x = 0.0, input_y = 0.0, input_z = 0.0, input_r = 0.0;
 
@@ -28,14 +28,15 @@ int main(int argc, char *argv[])
             cout << "INFO: Quit from teleop_dobotpose_keyboard" << endl;
             return -1;
         }
-        sendPose.mode = 0;
+        sendPose.control = 0;
         if (input_x > 1000 || input_y > 1000 || input_z > 1000 || input_r > 1000) {
-            sendPose.mode = 1;
+            sendPose.control = 1;
             cout << "INFO: Dobot set to zero position" << endl;
         }
         else {
             cout << "INFO: Dobot will move to relative coordinate: ( " << input_x << ", " << input_y << ", " << input_z << ", " << input_r << " )" << endl;
         }
+        sendPose.mode = 0;      // send position coordinate is relative
         sendPose.x = input_x;
         sendPose.y = input_y;
         sendPose.z = input_z;
