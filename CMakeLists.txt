@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   message_generation
+  tf
 )
 
 ## System dependencies are found with CMake's conventions
@@ -142,6 +143,9 @@ add_dependencies(teleop_dobotpose_keyboard dobot_generate_messages_cpp)
 add_executable(runDobot src/runDobot.cpp src/dobotDriver.cpp)
 target_link_libraries(runDobot ${catkin_LIBRARIES})
 add_dependencies(runDobot dobot_generate_messages_cpp)
+
+add_executable(state_publisher src/state_publisher.cpp)
+target_link_libraries(state_publisher ${catkin_LIBRARIES})
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above

@@ -552,10 +552,10 @@ void DobotDriver::rosSetPoseCB(const dobot::DobotPoseMsg receivePose) {
         else if ( 1 == receivePose.mode ) {
             // mode == 0 means that coordinate is absolute
             cout << "absolute" << endl;
-            poseCommand.x = receivePose.x - currentPose.x;
-            poseCommand.y = receivePose.y - currentPose.y;
-            poseCommand.z = receivePose.z - currentPose.z;
-            poseCommand.r = receivePose.r - currentPose.r;
+            poseCommand.x = receivePose.x + zeroX - currentPose.x;
+            poseCommand.y = receivePose.y + zeroY - currentPose.y;
+            poseCommand.z = receivePose.z + zeroZ - currentPose.z;
+            poseCommand.r = receivePose.r + zeroR - currentPose.r;
         }
         // poseCommand is the relative coordinate
         int ret = runPointset(poseCommand);

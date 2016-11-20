@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
         else {
             cout << "INFO: Dobot will move to relative coordinate: ( " << input_x << ", " << input_y << ", " << input_z << ", " << input_r << " )" << endl;
         }
-        sendPose.mode = 0;      // send position coordinate is relative
+        sendPose.mode = 1;      // send position coordinate is relative
         sendPose.x = input_x;
         sendPose.y = input_y;
         sendPose.z = input_z;
