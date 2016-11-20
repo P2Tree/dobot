@@ -78,9 +78,9 @@ DobotDriver::DobotDriver(ros::NodeHandle node) : uartPort("/dev/ttyUSB0"){
     if ( uartInit() )
         exit(-2);
     // first set zero from zero.file file, after that [zero] should be setted
-    // setZero function will get zero values from rosparams server at this time
-    if (setZero(node)) {
-        perror("ERR: set zero values wrong");
+    // setInit function will get zero values and limited values from rosparams server at this time
+    if (setInit(node)) {
+        perror("ERR: set init values wrong");
         exit(-1);
     }
 
@@ -199,18 +199,28 @@ void DobotDriver::setUartOpt(const int nSpeed, const int nBits, const char nEven
 }
 
 // get zero value and put it into zero arguments
-int DobotDriver::setZero(ros::NodeHandle node) {
-    int ret = node.getParam("/runDobot/zeroX", zeroX);
-    cout << "ret: " << ret << endl;
+int DobotDriver::setInit(ros::NodeHandle node) {
+    int ret = node.getParam("/runDobot/zeroX", zeroX) &&
+        node.getParam("/runDobot/zeroY", zeroX) && 
+        node.getParam("/runDobot/zeroZ", zeroX) &&
+        node.getParam("/runDobot/zeroR", zeroX) &&
+        node.getParam("/runDobot/limitMinX", MinX) &&
+        node.getParam("/runDobot/limitMaxX", MaxX) &&
+        node.getParam("/runDobot/limitMinY", MinY) &&
+        node.getParam("/runDobot/limitMaxY", MaxY) &&
+        node.getParam("/runDobot/limitMinZ", MinZ) &&
+        node.getParam("/runDobot/limitMaxZ", MaxZ) &&
+        node.getParam("/runDobot/limitMinR", MinR) &&
+        node.getParam("/runDobot/limitMaxR", MaxR);
     if (!ret) {
-        cout << "ERR: wrong to get zero values from rosparams server" << endl;
+        cout << "ERR: wrong to get zero or limited values from rosparams server" << endl;
         return -1;
     }
 
-    cout << "INFO: reset zero value done." << endl;
-    cout << " Current zero: ";
-    cout << "(" << zeroX << ", " << zeroY << ", ";
-    cout << zeroZ << ", " << zeroR << ")" << endl;
+    cout << "INFO: Setting const value done." << endl;
+    cout << "INFO: Current zero values: " << "(" << zeroX << ", " << zeroY << ", " << zeroZ << ", " << zeroR << ")" << endl;
+    cout << "INFO: Current limited values: " << "X axis: (" << MinX << ", " << MaxX << ")" << ", " << "Y axis: (" << MinY << ", " << MaxY << ")";
+    cout << ", " << "Z axis: (" << MinZ << ", " << MaxZ << ")" << ", " << "R axis: (" << MinR << ", " << MaxR << ")" << endl;
     // ifstream zerofile;
     // // ZEROFILE
     // zerofile.open("~/driver/zero.file", ios::in);     // open file for read

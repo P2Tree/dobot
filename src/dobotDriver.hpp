@@ -138,12 +138,12 @@ private:
     void setUartOpt(const int nSpeed, const int nBits, const char nEvent, const int nStop);
 
     /**
-     *  @func:  setZero
+     *  @func:  setInit
      *  @brif:  set software zero value from zero.file
      *  @args:  node is the ros hander
      *  @retn:  return 0 is right but negative value is wrong
      *  */
-    int setZero(ros::NodeHandle node);
+    int setInit(ros::NodeHandle node);
 
     /**
      *  @func:  updateZero
