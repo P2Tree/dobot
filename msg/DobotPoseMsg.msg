@@ -7,8 +7,8 @@
 int8 control
 
 # mode = 0          : ( x, y, z, r ) is the relative coordinate, which is based on current position
-# mode = 1          : ( x, y, z, r ) is the absolute coordinate, which is based on zero point
-# mode = 2          : ( x, y, z, r ) is the dobot_link coordinate, which is based on dobot base point
+# mode = 1          : ( x, y, z, r ) is the dobot_link Cartesian coordinate, which is based on dobot base point
+# mode = 2          : ( radius, theta, z, r ) is the dobot_link Polar coordinate(2-D), is based on dobot base point
 int8 mode
 
 # coordinate
@@ -16,3 +16,5 @@ float32 x
 float32 y
 float32 z
 float32 r
+float32 radius
+float32 theta

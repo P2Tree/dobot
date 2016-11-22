@@ -6,3 +6,7 @@ limitMinZ:  -35
 limitMaxZ:  65
 limitMinR:  -135
 limitMaxR:  135
+limitMaxRadius: 300
+limitMinRadius: 200
+limitMaxTheta: 100
+limitMinTheta: -110

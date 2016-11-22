@@ -12,12 +12,26 @@ int main(int argc, char *argv[])
     ros::Publisher pub = node.advertise<dobot::DobotPoseMsg>("dobot/set_dobot_pose", 10);
     ros::Rate loop_rate(10);
     float input_x = 0.0, input_y = 0.0, input_z = 0.0, input_r = 0.0;
+    unsigned char type;     // type can be set to 'r' 'b' 'p', 'r' means relative coordinate,
+                            // 'b' means base coordinate, 'p' means polar coordinate
 
     cout << endl;
     cout << "Move: Input the relative pose coordinate to move dobot: x y z r" << endl;
     cout << "Zero: Input a number in whatever x or y or z or r with a over 1000 number" << endl;
     cout << "Quit: Input any letter to quit" << endl;
     cout << " ----- " << endl;
+    cout << "What type of coordinate you want to give? [r/b/p]";
+    cin >> type;
+    if (!(type == 'r' || type == 'b' || type == 'p')) {
+        cout << "Wrong value of type: " << type << endl;
+        cout << "Please input type again: [r/b/p]" << endl;
+        cout << " 'r' means relative coordinate" << endl;
+        cout << " 'b' means base coordinate" << endl;
+        cout << " 'p' means polar coordinate" << endl;
+        cout << "type: ";
+        cin >> type;
+    }
+    cout << "type coordinate is " << type << endl;
 
     while (ros::ok()) {
         cout << ": ";
@@ -34,13 +48,30 @@ int main(int argc, char *argv[])
             cout << "INFO: Dobot set to zero position" << endl;
         }
         else {
-            cout << "INFO: Dobot will move to relative coordinate: ( " << input_x << ", " << input_y << ", " << input_z << ", " << input_r << " )" << endl;
+            cout << "INFO: Dobot will move to coordinate: ( " << input_x << ", " << input_y << ", " << input_z << ", " << input_r << " )" << endl;
         }
-        sendPose.mode = 1;      // send position coordinate is relative
-        sendPose.x = input_x;
-        sendPose.y = input_y;
-        sendPose.z = input_z;
-        sendPose.r = input_r;
+        if (type == 'r') {
+            sendPose.mode = 0;
+            sendPose.x = input_x;
+            sendPose.y = input_y;
+            sendPose.z = input_z;
+            sendPose.r = input_r;
+        }
+        else if(type == 'b') {
+            sendPose.mode = 1;
+            sendPose.x = input_x;
+            sendPose.y = input_y;
+            sendPose.z = input_z;
+            sendPose.r = input_r;
+
+        }
+        else if(type == 'p') {
+            sendPose.mode = 2;
+            sendPose.radius = input_x;
+            sendPose.theta = input_y;
+            sendPose.z = input_z;
+            sendPose.r = input_r;
+        }
         pub.publish(sendPose);
         cout << " ----- " << endl;
         ros::spinOnce();

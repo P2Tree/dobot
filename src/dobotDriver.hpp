@@ -10,8 +10,11 @@
 #define LEN_POINTSET    0x13
 #define LEN_POINTSETRET 0x0A
 #define LEN_GETCURRENTPOSE  0x02
+#define LEN_SETHOME     0x03
+#define LEN_SETHOMERET  0x0A
 #define ID_POINTSET     0x54
 #define ID_GETCURRENTPOSE   0x0A
+#define ID_SETHOME      0x1F
 
 typedef struct {
     unsigned int mode;
@@ -84,6 +87,26 @@ typedef struct {
     unsigned char checkSum;
 }CmdGetCurrentPoseRet_t;
 
+typedef struct {
+    unsigned char header1;
+    unsigned char header2;
+    unsigned char len;
+    unsigned char id;
+    unsigned char ctrl;
+    unsigned char reserved;
+    unsigned char checkSum;
+}CmdSetHome_t;
+
+typedef struct {
+    unsigned char header1;
+    unsigned char header2;
+    unsigned char len;
+    unsigned char id;
+    unsigned char ctrl;
+    unsigned char queuedCmdIndex[8];
+    unsigned char checkSum;
+}CmdSetHomeRet_t;
+
 class DobotDriver {
 private:
     // It contain the current pose of dobot arm, will be updated by every motion of arm.
@@ -109,6 +132,12 @@ private:
     static float MinZ;
     static float MaxR;
     static float MinR;
+
+    static float MaxRadius;
+    static float MinRadius;
+    static float MaxTheta;
+    static float MinTheta;
+
     // Methods with uart communication to dobot arm.
     
     // About ROS arguments
@@ -204,6 +233,10 @@ private:
      *  */
     void sendGetCurrentPoseCmd(CmdGetCurrentPose_t cmd, FullPose_t &retPose);
 
+    CmdSetHome_t createSetHomeCmd();
+
+    void sendSetHomeCmd(CmdSetHome_t cmd);
+
     /**
      *  @func:  getCurrentPose
      *  @brif:  get current dobot arm FullPose
@@ -247,6 +280,7 @@ private:
 
     void printGetCurrentPoseCmd(CmdGetCurrentPose_t cmd);
     void printGetCurrentPoseRetCmd(CmdGetCurrentPoseRet_t cmd);
+    void printSetHomeCmd(CmdSetHome_t cmd);
 
 public:
     /**
@@ -279,6 +313,7 @@ public:
      *  */
     void rosPublishPose();
 
+    void rosGoBootHome();
 };
 
 #endif /* ifndef DOBOT_DRIVER_H_ */

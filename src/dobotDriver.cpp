@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <termio.h>
+#include <math.h>
 
 #include "ros/ros.h"
 #include "dobot/DobotPoseMsg.h"
@@ -28,6 +29,7 @@ using namespace std;
  *  DEFINE
  *  
  *  */
+#define PI      3.141593
 #define DEBUG
 
 #ifdef DEBUG
@@ -60,6 +62,11 @@ float DobotDriver::MinZ = -35;
 float DobotDriver::MaxR = 135;
 float DobotDriver::MinR = -135;
 
+float DobotDriver::MaxRadius = 300;
+float DobotDriver::MinRadius = 200;
+float DobotDriver::MaxTheta = 120;
+float DobotDriver::MinTheta = -120;
+
 /******************
  * 
  *  PRIVATE METHODS
@@ -72,32 +79,45 @@ DobotDriver::DobotDriver() : uartPort("/dev/ttyUSB0"){
     getCurrentPose(absPose);
     cout << "INFO: boot position(absolute): ";
     cout << "( " << absPose.x << ", " << absPose.y << ", " << absPose.z << ", " << absPose.r << ")" << endl;
+    // INFO("boot position(absolute): ( %02f, %02f, %02f, %02f )", absPose.x, absPose.y, absPose.z, absPose.r);
 }
 
 DobotDriver::DobotDriver(ros::NodeHandle node) : uartPort("/dev/ttyUSB0"){
-    if ( uartInit() )
-        exit(-2);
-    // first set zero from zero.file file, after that [zero] should be setted
     // setInit function will get zero values and limited values from rosparams server at this time
     if (setInit(node)) {
         perror("ERR: set init values wrong");
         exit(-1);
     }
+    if ( uartInit() )
+        exit(-2);
 
     setPoseSub = node.subscribe<dobot::DobotPoseMsg>(
             "dobot/set_dobot_pose", 10, &DobotDriver::rosSetPoseCB, this);
     currentPosePub = node.advertise<dobot::DobotPoseMsg>(
             "dobot/current_dobot_pose", 10);
-    // This is only to update currentPose variable, method will read current pose
-    // and let it into currentPose
+
+    // push mechanical arm outside the base, avoid be blocked by base of itself when find the boot home procedure.
+    rosSet2Zero();
+    sleep(1);
+
+    cout << "INFO: go to boot home position" << endl;
+    rosGoBootHome();
+    sleep(18);
+
+    // come to zero position and ready to work
     cout << "INFO: Setting zero position" << endl;
     rosSet2Zero();
     sleep(1);
+
+    // This is only to update currentPose variable, method will read current pose
+    // and let it into currentPose
     FullPose_t absPose;
     getCurrentPose(absPose);
     cout << "INFO: boot position(absolute): ";
     cout << "( " << absPose.x << ", " << absPose.y << ", " << absPose.z << ", " << absPose.r << ")" << endl;
     cout << "INFO: boot done ------ " << endl;
+    // INFO("boot position(absolute): ( %02f, %02f, %02f, %02f )", absPose.x, absPose.y, absPose.z, absPose.r);
+    // INFO("boot done ----- ");
 }
 
 int DobotDriver::uartInit() {
@@ -201,9 +221,9 @@ void DobotDriver::setUartOpt(const int nSpeed, const int nBits, const char nEven
 // get zero value and put it into zero arguments
 int DobotDriver::setInit(ros::NodeHandle node) {
     int ret = node.getParam("/runDobot/zeroX", zeroX) &&
-        node.getParam("/runDobot/zeroY", zeroX) && 
-        node.getParam("/runDobot/zeroZ", zeroX) &&
-        node.getParam("/runDobot/zeroR", zeroX) &&
+        node.getParam("/runDobot/zeroY", zeroY) && 
+        node.getParam("/runDobot/zeroZ", zeroZ) &&
+        node.getParam("/runDobot/zeroR", zeroR) &&
         node.getParam("/runDobot/limitMinX", MinX) &&
         node.getParam("/runDobot/limitMaxX", MaxX) &&
         node.getParam("/runDobot/limitMinY", MinY) &&
@@ -211,7 +231,11 @@ int DobotDriver::setInit(ros::NodeHandle node) {
         node.getParam("/runDobot/limitMinZ", MinZ) &&
         node.getParam("/runDobot/limitMaxZ", MaxZ) &&
         node.getParam("/runDobot/limitMinR", MinR) &&
-        node.getParam("/runDobot/limitMaxR", MaxR);
+        node.getParam("/runDobot/limitMaxR", MaxR) &&
+        node.getParam("/runDobot/limitMinRadius", MinRadius) &&
+        node.getParam("/runDobot/limitMaxRadius", MaxRadius) &&
+        node.getParam("/runDobot/limitMinTheta", MinTheta) &&
+        node.getParam("/runDobot/limitMaxTheta", MaxTheta);
     if (!ret) {
         cout << "ERR: wrong to get zero or limited values from rosparams server" << endl;
         return -1;
@@ -220,20 +244,8 @@ int DobotDriver::setInit(ros::NodeHandle node) {
     cout << "INFO: Setting const value done." << endl;
     cout << "INFO: Current zero values: " << "(" << zeroX << ", " << zeroY << ", " << zeroZ << ", " << zeroR << ")" << endl;
     cout << "INFO: Current limited values: " << "X axis: (" << MinX << ", " << MaxX << ")" << ", " << "Y axis: (" << MinY << ", " << MaxY << ")";
-    cout << ", " << "Z axis: (" << MinZ << ", " << MaxZ << ")" << ", " << "R axis: (" << MinR << ", " << MaxR << ")" << endl;
-    // ifstream zerofile;
-    // // ZEROFILE
-    // zerofile.open("~/driver/zero.file", ios::in);     // open file for read
-    // if (!zerofile.is_open()) {
-        // cout << "ERR: open file zero.file for read, fail" << endl;
-        // return -1;
-    // }
-    // zerofile >> zeroX >> zeroY >> zeroZ >> zeroR;
-    // cout << "INFO: reset zero value from zero.file" << endl;
-    // cout << "INFO: current zero: ";
-    // cout << "(" << zeroX << ", " << zeroY << ", ";
-    // cout << zeroZ << ", " << zeroR << ")" << endl;
-    // zerofile.close();
+    cout << ", " << "Z axis: (" << MinZ << ", " << MaxZ << ")" << ", " << "R axis: (" << MinR << ", " << MaxR << ")";
+    cout << ", " << "Radius: (" << MinRadius << ", " << MaxRadius << ")" << "Theta: (" << MinTheta << ", " << MaxTheta << ")" << endl;
     return 0;
 }
 
@@ -313,22 +325,6 @@ CmdPointSet_t DobotDriver::createPointsetCmd(Pose_t pose) {
     return cmd;
 }
 
-CmdGetCurrentPose_t DobotDriver::createGetCurrentPoseCmd() {
-    CmdGetCurrentPose_t cmd;
-    cmd.header1 = HD;
-    cmd.header2 = HD;
-    cmd.len = LEN_GETCURRENTPOSE;
-    cmd.id = ID_GETCURRENTPOSE;
-    cmd.ctrl = CTRLR;
-    char check = cmd.id + cmd.ctrl;
-    check = 0xFF - check + 0x01;
-    cmd.checkSum = check;
-#ifdef DEBUG_ORIGIN
-    printGetCurrentPoseCmd(cmd);
-#endif
-    return cmd;
-}
-
 void DobotDriver::sendPointsetCmd(CmdPointSet_t cmd) {
     CmdPointSetRet_t retData;
     CmdPointSetRet_t *pRetData = &retData;
@@ -352,6 +348,22 @@ void DobotDriver::sendPointsetCmd(CmdPointSet_t cmd) {
     }
 
     return;
+}
+
+CmdGetCurrentPose_t DobotDriver::createGetCurrentPoseCmd() {
+    CmdGetCurrentPose_t cmd;
+    cmd.header1 = HD;
+    cmd.header2 = HD;
+    cmd.len = LEN_GETCURRENTPOSE;
+    cmd.id = ID_GETCURRENTPOSE;
+    cmd.ctrl = CTRLR;
+    char check = cmd.id + cmd.ctrl;
+    check = 0xFF - check + 0x01;
+    cmd.checkSum = check;
+#ifdef DEBUG_ORIGIN
+    printGetCurrentPoseCmd(cmd);
+#endif
+    return cmd;
 }
 
 void DobotDriver::sendGetCurrentPoseCmd(CmdGetCurrentPose_t cmd, FullPose_t &retPose) {
@@ -387,6 +399,49 @@ void DobotDriver::sendGetCurrentPoseCmd(CmdGetCurrentPose_t cmd, FullPose_t &ret
     retPose.j4 = *(float *)retData.j4;
     retPose.j5 = *(float *)retData.j5;
 
+}
+
+CmdSetHome_t DobotDriver::createSetHomeCmd() {
+    CmdSetHome_t cmd;
+    cmd.header1 = HD;
+    cmd.header2 = HD;
+    cmd.len = LEN_SETHOME;
+    cmd.id = ID_SETHOME;
+    cmd.ctrl = CTRLW | CTRLQ;
+    cmd.reserved = 0x00;
+    char check = cmd.id + cmd.ctrl + cmd.reserved;
+    check = 0xFF - check + 0x01;
+    cmd.checkSum = check;
+#ifdef DEBUG_ORIGIN
+    printSetHomeCmd(cmd);
+#endif
+    return cmd;
+}
+
+void DobotDriver::sendSetHomeCmd(CmdSetHome_t cmd) {
+    CmdSetHomeRet_t retData;
+    CmdSetHomeRet_t *pRetData = &retData;
+    int retLen = 0;
+    CmdSetHome_t * pcmd = &cmd;
+    tcflush(uartFd, TCOFLUSH);
+    write(uartFd, pcmd, sizeof(cmd));
+    sleep(1);
+    retLen = read(uartFd, pRetData, 20);
+    if (!(retLen > 0)) {
+        throw -1;
+        return;
+    }
+#ifdef DEBUG_ORIGIN
+    // printSetHomeRetCmd(retData);
+    // Not completed
+#endif
+    tcflush(uartFd, TCIFLUSH);
+    if ( -1 == checkChecksum((unsigned char*)pRetData, retLen) ) {
+        throw -2;
+        return;
+    }
+
+    return;
 }
 
 int DobotDriver::getCurrentPose(FullPose_t &retPose) {
@@ -434,33 +489,29 @@ void DobotDriver::updateCurrentPose(Pose_t pose) {
 int DobotDriver::runPointset(Pose_t pose) {
     CmdPointSet_t cmd;
 
-    // transfer relative coordinate to absolute coordinate
-    // pose is the relative corrdinate
+    // absPose is the world coordinate in dobot, it is the dobot_base frame
     Pose_t absPose;
-    absPose.x = pose.x + currentPose.x;
-    absPose.y = pose.y + currentPose.y;
-    absPose.z = pose.z + currentPose.z;
-    absPose.r = pose.r + currentPose.r;
+    absPose.x = pose.x;
+    absPose.y = pose.y;
+    absPose.z = pose.z;
+    absPose.r = pose.r;
 
     // decide limited space of margin
-    if (absPose.x < MinX)
-        absPose.x = MinX;
-    else if (absPose.x > MaxX)
-        absPose.x = MaxX;
-    if (absPose.y < MinY)
-        absPose.y = MinY;
-    else if(absPose.y > MaxY)
-        absPose.y = MaxY;
-    if (absPose.z < MinZ)
-        absPose.z = MinZ;
-    else if(absPose.z > MaxZ)
-        absPose.z = MaxZ;
-    if (absPose.r < MinR)
-        absPose.r = MinR;
-    else if(absPose.r > MaxR)
-        absPose.r = MaxR;
-    // absPose is the world coordinate
-    // pose is the relative coordinate
+    float R = sqrt(pose.x * pose.x + pose.y * pose.y);
+    float theta = atan2(pose.y, pose.x);    // theta return -pi to pi
+    theta = 180 * theta / PI;   // now theta return -180 to 180
+    if ( R < MinRadius || R > MaxRadius || theta < MinTheta || theta > MaxTheta 
+            || pose.z < MinZ || pose.z > MaxZ || pose.r < MinR || pose.r > MaxR ) {
+        perror("out of marge limitation");
+        cout << "MinRadius= " << MinRadius << " MaxRadius= " << MaxRadius;
+        cout << "MinTheta= " << MinTheta << " MaxTheta= " << MaxTheta;
+        cout << "MinZ= " << MinZ << " MaxZ= " << MaxZ;
+        cout << "MinR= " << MinR << " MaxR= " << MaxR << endl;
+        cout << "R= " << R << " theta= " << theta << " pose.z= " << pose.z << " pose.r= " << pose.r << endl;
+        return -2;
+    }
+    
+    // absPose is the dobot_base coordinate
     cmd = createPointsetCmd(absPose);
     try{
         sendPointsetCmd(cmd);
@@ -519,7 +570,6 @@ int DobotDriver::rosSet2Zero() {
     // cout << ", " << currentPose.z << ", " << currentPose.r << ")" << endl;
 // #endif
     return 0;
-
 }
 
 
@@ -552,28 +602,59 @@ void DobotDriver::rosSetPoseCB(const dobot::DobotPoseMsg receivePose) {
     }
     else if ( 0 == receivePose.control ) {
         if ( 0 == receivePose.mode ) {
-            // mode == 1 means that coordinate is relative
-            cout << "relative" << endl;
+            // mode == 0 means that coordinate is relative Cartesian coordinate
+            cout << "DEBUG: get a relative Cartesian coordinate: (";
+            cout << receivePose.x << ", " << receivePose.y << ", " << receivePose.z << ", " << receivePose.r << ")" << endl;
+        }
+        else if ( 1 == receivePose.mode ) {
+            // mode == 1 means that coordinate is dobot_base Cartesian coordinate
+            cout << "DEBUG: get a dobot_base Cartesian coordinate: (";
+            cout << receivePose.x << ", " << receivePose.y << ", " << receivePose.z << ", " << receivePose.r << ")" << endl;
             poseCommand.x = receivePose.x;
             poseCommand.y = receivePose.y;
             poseCommand.z = receivePose.z;
             poseCommand.r = receivePose.r;
         }
-        else if ( 1 == receivePose.mode ) {
-            // mode == 0 means that coordinate is absolute
-            cout << "absolute" << endl;
-            poseCommand.x = receivePose.x + zeroX - currentPose.x;
-            poseCommand.y = receivePose.y + zeroY - currentPose.y;
-            poseCommand.z = receivePose.z + zeroZ - currentPose.z;
-            poseCommand.r = receivePose.r + zeroR - currentPose.r;
+        else if ( 2 == receivePose.mode ) {
+            // mode == 2 means that coordinate is Polar coordinate
+            // theta is angle value and we should convert it to radian value
+            cout << "DEBUG: get a Polar coordinate: (";
+            cout << receivePose.radius << ", " << receivePose.theta << ", " << receivePose.z << ", " << receivePose.r << ")" << endl;
+            poseCommand.x = receivePose.radius * cos(receivePose.theta / 180 * PI);
+            poseCommand.y = receivePose.radius * sin(receivePose.theta / 180 * PI);
+            poseCommand.z = receivePose.z;
+            poseCommand.r = receivePose.r;
         }
-        // poseCommand is the relative coordinate
+        // poseCommand is the dobot_base frame coordinate
         int ret = runPointset(poseCommand);
         if ( -1 == ret ) {
             perror("fault to run Pointset method to dobot");
         }
     }
     cout << "INFO: move dobot arm done ----- " << endl;
+    // INFO("move dobot arm done ----- ");
+}
+
+void DobotDriver::rosGoBootHome() {
+    CmdSetHome_t cmd;
+    cmd = createSetHomeCmd();
+    try{
+        sendSetHomeCmd(cmd);
+    }
+    catch(int i) {
+        if (-1 == i) {
+            perror("receive no data");
+            perror("fault to run rosGoBootHome method to dobot");
+            return;
+        }
+        if (-2 == i) {
+            perror("recevie data cs check wrong");
+            perror("fault to run rosGoBootHome method to dobot");
+            return;
+        }
+    }
+    return;
+    cout << "INFO: go boothome done ----- " << endl;
 }
 
 /**************************
@@ -672,4 +753,17 @@ void DobotDriver::printGetCurrentPoseRetCmd(CmdGetCurrentPoseRet_t cmd) {
     cout << setfill('0') << setw(2) << hex << (unsigned int)cmd.j5[2] << " ";
     cout << setfill('0') << setw(2) << hex << (unsigned int)cmd.j5[3] << " ";
     cout << setfill('0') << setw(2) << hex << (unsigned int)cmd.checkSum << " " << endl;
+}
+
+void DobotDriver::printSetHomeCmd(CmdSetHome_t cmd) {
+    cout << "DEBUG: setHome command is:" << endl;
+    cout << "HD HD LN ID CR H1 H2 H3 H4 CS" << endl;
+    cout << setfill('0') << setw(2) << hex << (unsigned int)cmd.header1 << " ";
+    cout << setfill('0') << setw(2) << hex << (unsigned int)cmd.header2 << " ";
+    cout << setfill('0') << setw(2) << hex << (unsigned int)cmd.len << " ";
+    cout << setfill('0') << setw(2) << hex << (unsigned int)cmd.id << " ";
+    cout << setfill('0') << setw(2) << hex << (unsigned int)cmd.ctrl << " ";
+    cout << setfill('0') << setw(2) << hex << (unsigned int)cmd.reserved << " ";
+    cout << setfill('0') << setw(2) << hex << (unsigned int)cmd.checkSum << " " << endl;
+
 }
