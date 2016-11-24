@@ -116,6 +116,7 @@ private:
     // 2 arguments of uart communication to dobot arm.
     int uartFd;
     const char *uartPort;
+    const unsigned int uartBaud;
 
     // Zero position of dobot with (x, y, z, r)
     static float zeroX;

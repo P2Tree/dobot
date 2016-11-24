@@ -10,6 +10,7 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <string>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,7 +73,7 @@ float DobotDriver::MinTheta = -120;
  *  PRIVATE METHODS
  *
  * */
-DobotDriver::DobotDriver() : uartPort("/dev/ttyUSB0"){
+DobotDriver::DobotDriver() : uartPort("/dev/dobot"), uartBaud(115200){
     if ( uartInit() )
         exit(-2);
     FullPose_t absPose;
@@ -82,7 +83,7 @@ DobotDriver::DobotDriver() : uartPort("/dev/ttyUSB0"){
     // INFO("boot position(absolute): ( %02f, %02f, %02f, %02f )", absPose.x, absPose.y, absPose.z, absPose.r);
 }
 
-DobotDriver::DobotDriver(ros::NodeHandle node) : uartPort("/dev/ttyUSB0"){
+DobotDriver::DobotDriver(ros::NodeHandle node) : uartPort("/dev/dobot"), uartBaud(115200){
     // setInit function will get zero values and limited values from rosparams server at this time
     if (setInit(node)) {
         perror("ERR: set init values wrong");
@@ -123,7 +124,7 @@ DobotDriver::DobotDriver(ros::NodeHandle node) : uartPort("/dev/ttyUSB0"){
 int DobotDriver::uartInit() {
     try{
         openPort();
-        setUartOpt(115200, 8, 'N', 1);
+        setUartOpt(uartBaud, 8, 'N', 1);
     }
     catch(int i) {
         if (-1 == i) {
@@ -237,7 +238,7 @@ int DobotDriver::setInit(ros::NodeHandle node) {
         node.getParam("/runDobot/limitMinTheta", MinTheta) &&
         node.getParam("/runDobot/limitMaxTheta", MaxTheta);
     if (!ret) {
-        cout << "ERR: wrong to get zero or limited values from rosparams server" << endl;
+        cout << "ERR: wrong to get zero or limited values from rosparam server" << endl;
         return -1;
     }
 
@@ -246,6 +247,7 @@ int DobotDriver::setInit(ros::NodeHandle node) {
     cout << "INFO: Current limited values: " << "X axis: (" << MinX << ", " << MaxX << ")" << ", " << "Y axis: (" << MinY << ", " << MaxY << ")";
     cout << ", " << "Z axis: (" << MinZ << ", " << MaxZ << ")" << ", " << "R axis: (" << MinR << ", " << MaxR << ")";
     cout << ", " << "Radius: (" << MinRadius << ", " << MaxRadius << ")" << "Theta: (" << MinTheta << ", " << MaxTheta << ")" << endl;
+
     return 0;
 }
 
